@@ -1,13 +1,17 @@
+import os
 import pyodbc
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 
+load_dotenv()
+
 DB_CONN_STR = (
     "DRIVER={ODBC Driver 18 for SQL Server};"
-    "SERVER=tcp:cloud2026.database.windows.net,1433;"
-    "DATABASE=pr2;"
-    "UID=pasinozavr;"
-    "PWD=61YcGTqd;"
+    f"SERVER={os.environ['DB_SERVER']};"
+    f"DATABASE={os.environ['DB_NAME']};"
+    f"UID={os.environ['DB_USER']};"
+    f"PWD={os.environ['DB_PASSWORD']};"
     "Encrypt=yes;"
     "TrustServerCertificate=no;"
     "Connection Timeout=30;"

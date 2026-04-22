@@ -1,14 +1,36 @@
+import json
+import os
 import pyodbc
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
+
+load_dotenv()
+
+SB_SEND_CONN_STR = os.environ["SB_SEND_CONN_STR"]
+SB_QUEUE_NAME = os.environ["SB_QUEUE_NAME"]
+
+
+def publish_registration_completed(registration_id: str, user_id: str, class_id: str):
+    payload = json.dumps({
+        "event": "RegistrationCompleted",
+        "registration_id": registration_id,
+        "user_id": user_id,
+        "class_id": class_id,
+    })
+    with ServiceBusClient.from_connection_string(SB_SEND_CONN_STR) as client:
+        with client.get_queue_sender(queue_name=SB_QUEUE_NAME) as sender:
+            sender.send_messages(ServiceBusMessage(payload))
+    print(f"[ServiceBus] Published RegistrationCompleted: registration_id={registration_id}")
 
 DB_CONN_STR = (
     "DRIVER={ODBC Driver 18 for SQL Server};"
-    "SERVER=tcp:cloud2026.database.windows.net,1433;"
-    "DATABASE=pr2;"
-    "UID=pasinozavr;"
-    "PWD=61YcGTqd;"
+    f"SERVER={os.environ['DB_SERVER']};"
+    f"DATABASE={os.environ['DB_NAME']};"
+    f"UID={os.environ['DB_USER']};"
+    f"PWD={os.environ['DB_PASSWORD']};"
     "Encrypt=yes;"
     "TrustServerCertificate=no;"
     "Connection Timeout=30;"
@@ -157,4 +179,6 @@ def create_registration(body: RegistrationIn):
         """, body.user_id, body.class_id)
         new_id = cur.fetchone()[0]
         conn.commit()
-        return {"registration_id": str(new_id), "status": "PENDING"}
+
+    publish_registration_completed(str(new_id), body.user_id, body.class_id)
+    return {"registration_id": str(new_id), "status": "PENDING"}

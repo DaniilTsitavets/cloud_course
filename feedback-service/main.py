@@ -1,15 +1,46 @@
+import asyncio
+import json
+import os
 import pyodbc
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from typing import Optional
+from azure.servicebus.aio import ServiceBusClient as AsyncServiceBusClient
+
+load_dotenv()
+
+SB_LISTEN_CONN_STR = os.environ["SB_LISTEN_CONN_STR"]
+SB_QUEUE_NAME = os.environ["SB_QUEUE_NAME"]
+POLL_INTERVAL_SECONDS = 10
+
+
+async def poll_service_bus():
+    print(f"[ServiceBus] Poller started — checking every {POLL_INTERVAL_SECONDS}s")
+    while True:
+        try:
+            async with AsyncServiceBusClient.from_connection_string(SB_LISTEN_CONN_STR) as client:
+                async with client.get_queue_receiver(
+                    queue_name=SB_QUEUE_NAME, max_wait_time=5
+                ) as receiver:
+                    async for msg in receiver:
+                        try:
+                            data = json.loads(str(msg))
+                            print(f"[ServiceBus] Received event: {data}")
+                        except json.JSONDecodeError:
+                            print(f"[ServiceBus] Non-JSON message: {msg}")
+                        await receiver.complete_message(msg)
+        except Exception as exc:
+            print(f"[ServiceBus] Poller error: {exc}")
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 DB_CONN_STR = (
     "DRIVER={ODBC Driver 18 for SQL Server};"
-    "SERVER=tcp:cloud2026.database.windows.net,1433;"
-    "DATABASE=pr2;"
-    "UID=pasinozavr;"
-    "PWD=61YcGTqd;"
+    f"SERVER={os.environ['DB_SERVER']};"
+    f"DATABASE={os.environ['DB_NAME']};"
+    f"UID={os.environ['DB_USER']};"
+    f"PWD={os.environ['DB_PASSWORD']};"
     "Encrypt=yes;"
     "TrustServerCertificate=no;"
     "Connection Timeout=30;"
@@ -29,28 +60,6 @@ def init_db():
                 EXEC('CREATE SCHEMA Daniil_Tsitavets_feedback')
         """)
 
-        # Drop legacy tables from old schema
-        cur.execute("""
-            IF OBJECT_ID('Daniil_Tsitavets_feedback.feedback_responses', 'U') IS NOT NULL
-                DROP TABLE Daniil_Tsitavets_feedback.feedback_responses
-        """)
-        cur.execute("""
-            IF OBJECT_ID('feedback.feedback', 'U') IS NOT NULL
-                DROP TABLE Daniil_Tsitavets_feedback.feedback
-        """)
-        # Drop Feedbacks/feedbacks table if it has wrong schema (no registration_id column)
-        cur.execute("""
-            IF NOT EXISTS (
-                SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_SCHEMA = 'Daniil_Tsitavets_feedback'
-                  AND TABLE_NAME IN ('feedbacks','Feedbacks')
-                  AND COLUMN_NAME = 'registration_id'
-            )
-            BEGIN
-                IF OBJECT_ID('Daniil_Tsitavets_feedback.Feedbacks', 'U') IS NOT NULL DROP TABLE Daniil_Tsitavets_feedback.Feedbacks;
-                IF OBJECT_ID('Daniil_Tsitavets_feedback.feedbacks', 'U') IS NOT NULL DROP TABLE Daniil_Tsitavets_feedback.feedbacks;
-            END
-        """)
         conn.commit()
 
         cur.execute("""
@@ -108,7 +117,13 @@ def init_db():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    task = asyncio.create_task(poll_service_bus())
     yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(title="FeedbackService", lifespan=lifespan)
