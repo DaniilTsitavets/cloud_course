@@ -7,7 +7,7 @@ trigger:
       - registration-service/*
 
 pool:
-  vmImage: ubuntu-latest
+  name: Default
 
 variables:
   pythonVersion: '3.12'

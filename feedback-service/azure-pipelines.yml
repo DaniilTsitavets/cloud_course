@@ -7,7 +7,7 @@ trigger:
       - feedback-service/*
 
 pool:
-  vmImage: ubuntu-latest
+  name: Default
 
 variables:
   pythonVersion: '3.12'
