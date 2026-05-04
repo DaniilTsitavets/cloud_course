@@ -12,16 +12,16 @@ pool:
 steps:
   - script: |
       sudo apt-get update -y
-      sudo apt-get install -y python3 python3-pip python3-venv python3-full
-    displayName: 'Install Python'
+      sudo apt-get install -y python3 python3-pip python3-venv python3-full unixodbc-dev
+    displayName: 'Install system dependencies'
 
   - script: |
-      python3 -m venv .venv
+      python3 -m venv --clear .venv
       .venv/bin/pip install --upgrade pip
       .venv/bin/pip install -r requirements.txt
       .venv/bin/pip install flake8 pytest httpx
     workingDirectory: registration-service
-    displayName: 'Install dependencies'
+    displayName: 'Install Python dependencies'
 
   - script: |
       .venv/bin/flake8 main.py --max-line-length=150 --exclude=__pycache__
