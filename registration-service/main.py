@@ -32,6 +32,7 @@ def publish_registration_completed(registration_id: str, user_id: str, class_id:
             sender.send_messages(ServiceBusMessage(payload))
     logger.info("[ServiceBus] Published RegistrationCompleted: registration_id=%s", registration_id)
 
+
 DB_CONN_STR = (
     "DRIVER={ODBC Driver 18 for SQL Server};"
     f"SERVER={os.environ['DB_SERVER']};"
