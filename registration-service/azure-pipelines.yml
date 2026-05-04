@@ -9,26 +9,26 @@ trigger:
 pool:
   name: Default
 
-
 steps:
   - script: |
       sudo apt-get update -y
-      sudo apt-get install -y python3 python3-pip
+      sudo apt-get install -y python3 python3-pip python3-venv python3-full
     displayName: 'Install Python'
 
   - script: |
-      pip3 install --upgrade pip
-      pip3 install -r requirements.txt
-      pip3 install flake8 pytest httpx
+      python3 -m venv .venv
+      .venv/bin/pip install --upgrade pip
+      .venv/bin/pip install -r requirements.txt
+      .venv/bin/pip install flake8 pytest httpx
     workingDirectory: registration-service
     displayName: 'Install dependencies'
 
   - script: |
-      flake8 main.py --max-line-length=130 --exclude=__pycache__
+      .venv/bin/flake8 main.py --max-line-length=130 --exclude=__pycache__
     workingDirectory: registration-service
     displayName: 'Static validation (flake8)'
 
   - script: |
-      pytest tests/ -v --tb=short
+      .venv/bin/pytest tests/ -v --tb=short
     workingDirectory: registration-service
     displayName: 'Unit tests (pytest)'
