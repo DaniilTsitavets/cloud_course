@@ -1,15 +1,21 @@
 import asyncio
 import json
+import logging
 import os
 import pyodbc
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from typing import Optional
+from dotenv import load_dotenv
+from fastapi import FastAPI
 from azure.servicebus.aio import ServiceBusClient as AsyncServiceBusClient
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 SB_LISTEN_CONN_STR = os.environ["SB_LISTEN_CONN_STR"]
 SB_QUEUE_NAME = os.environ["SB_QUEUE_NAME"]
@@ -17,7 +23,7 @@ POLL_INTERVAL_SECONDS = 10
 
 
 async def poll_service_bus():
-    print(f"[ServiceBus] Poller started — checking every {POLL_INTERVAL_SECONDS}s")
+    logger.info("[ServiceBus] Poller started — checking every %ss", POLL_INTERVAL_SECONDS)
     while True:
         try:
             async with AsyncServiceBusClient.from_connection_string(SB_LISTEN_CONN_STR) as client:
@@ -27,12 +33,12 @@ async def poll_service_bus():
                     async for msg in receiver:
                         try:
                             data = json.loads(str(msg))
-                            print(f"[ServiceBus] Received event: {data}")
+                            logger.info("[ServiceBus] Received event: %s", data)
                         except json.JSONDecodeError:
-                            print(f"[ServiceBus] Non-JSON message: {msg}")
+                            logger.warning("[ServiceBus] Non-JSON message: %s", msg)
                         await receiver.complete_message(msg)
         except Exception as exc:
-            print(f"[ServiceBus] Poller error: {exc}")
+            logger.error("[ServiceBus] Poller error: %s", exc)
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 DB_CONN_STR = (
@@ -109,9 +115,9 @@ def init_db():
                     VALUES (?, ?, ?, ?, ?)
                 """, reg_id, usr_id, cls_id, rating, comment)
             conn.commit()
-            print("Stub data inserted.")
+            logger.info("Stub data inserted.")
 
-    print("FeedbackService DB initialized.")
+    logger.info("FeedbackService DB initialized.")
 
 
 @asynccontextmanager

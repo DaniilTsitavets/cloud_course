@@ -1,13 +1,20 @@
 import json
+import logging
 import os
 import pyodbc
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from contextlib import asynccontextmanager
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 SB_SEND_CONN_STR = os.environ["SB_SEND_CONN_STR"]
 SB_QUEUE_NAME = os.environ["SB_QUEUE_NAME"]
@@ -23,7 +30,7 @@ def publish_registration_completed(registration_id: str, user_id: str, class_id:
     with ServiceBusClient.from_connection_string(SB_SEND_CONN_STR) as client:
         with client.get_queue_sender(queue_name=SB_QUEUE_NAME) as sender:
             sender.send_messages(ServiceBusMessage(payload))
-    print(f"[ServiceBus] Published RegistrationCompleted: registration_id={registration_id}")
+    logger.info("[ServiceBus] Published RegistrationCompleted: registration_id=%s", registration_id)
 
 DB_CONN_STR = (
     "DRIVER={ODBC Driver 18 for SQL Server};"
@@ -116,9 +123,9 @@ def init_db():
                     VALUES (?, ?, N'CONFIRMED')
                 """, uid, dummy_class)
             conn.commit()
-            print("Stub data inserted.")
+            logger.info("Stub data inserted.")
 
-    print("RegistrationService DB initialized.")
+    logger.info("RegistrationService DB initialized.")
 
 
 @asynccontextmanager

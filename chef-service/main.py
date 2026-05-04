@@ -1,10 +1,17 @@
+import logging
 import os
 import pyodbc
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from contextlib import asynccontextmanager
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 DB_CONN_STR = (
     "DRIVER={ODBC Driver 18 for SQL Server};"
@@ -86,9 +93,9 @@ def init_db():
                 FROM Daniil_Tsitavets_chef.chefs
             """)
             conn.commit()
-            print("Stub data inserted.")
+            logger.info("Stub data inserted.")
 
-    print("ChefService DB initialized.")
+    logger.info("ChefService DB initialized.")
 
 
 @asynccontextmanager
