@@ -1,0 +1,36 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - feedback-service/*
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  pythonVersion: '3.12'
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: $(pythonVersion)
+    displayName: 'Set up Python $(pythonVersion)'
+
+  - script: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      pip install flake8 pytest httpx pytest-asyncio
+    workingDirectory: feedback-service
+    displayName: 'Install dependencies'
+
+  - script: |
+      flake8 main.py --max-line-length=130 --exclude=__pycache__
+    workingDirectory: feedback-service
+    displayName: 'Static validation (flake8)'
+
+  - script: |
+      pytest tests/ -v --tb=short
+    workingDirectory: feedback-service
+    displayName: 'Unit tests (pytest)'
