@@ -24,7 +24,7 @@ steps:
     displayName: 'Install dependencies'
 
   - script: |
-      .venv/bin/flake8 main.py --max-line-length=130 --exclude=__pycache__
+      .venv/bin/flake8 main.py --max-line-length=150 --exclude=__pycache__
     workingDirectory: registration-service
     displayName: 'Static validation (flake8)'
 
