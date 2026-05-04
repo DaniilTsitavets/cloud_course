@@ -12,9 +12,9 @@ pool:
 
 steps:
   - script: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
-      pip install flake8 pytest httpx pytest-asyncio
+      pip3 install --upgrade pip
+      pip3 install -r requirements.txt
+      pip3 install flake8 pytest httpx pytest-asyncio
     workingDirectory: feedback-service
     displayName: 'Install dependencies'
 
