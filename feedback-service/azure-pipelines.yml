@@ -13,10 +13,10 @@ steps:
   - script: |
       python3 -m venv --clear .venv
       .venv/bin/pip install --upgrade pip
-      .venv/bin/pip install -r requirements.txt
+      .venv/bin/pip install -r requirements-test.txt
       .venv/bin/pip install flake8 pytest httpx pytest-asyncio
     workingDirectory: feedback-service
-    displayName: 'Install Python dependencies'
+    displayName: 'Install dependencies'
 
   - script: |
       .venv/bin/flake8 main.py --max-line-length=150 --exclude=__pycache__
