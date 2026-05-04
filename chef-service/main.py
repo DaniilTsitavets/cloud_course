@@ -2,8 +2,10 @@ import logging
 import os
 import pyodbc
 from contextlib import asynccontextmanager
+from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -148,3 +150,27 @@ def get_class(class_id: str):
         if not row:
             raise HTTPException(status_code=404, detail="Class not found")
         return row_to_dict(cur, row)
+
+
+class ChefIn(BaseModel):
+    name: str
+    bio: Optional[str] = None
+    specialization: Optional[str] = None
+    rating: float = 0.0
+
+
+@app.post("/chefs", status_code=201)
+def create_chef(body: ChefIn):
+    if not 0.0 <= body.rating <= 5.0:
+        raise HTTPException(status_code=422, detail="Rating must be between 0 and 5")
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO Daniil_Tsitavets_chef.chefs (name, bio, specialization, rating)
+            OUTPUT INSERTED.chef_id
+            VALUES (?, ?, ?, ?)
+        """, body.name, body.bio, body.specialization, body.rating)
+        new_id = cur.fetchone()[0]
+        conn.commit()
+    logger.info("Chef created: chef_id=%s", new_id)
+    return {"chef_id": str(new_id)}

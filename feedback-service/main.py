@@ -6,7 +6,8 @@ import pyodbc
 from contextlib import asynccontextmanager
 from typing import Optional
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from azure.servicebus.aio import ServiceBusClient as AsyncServiceBusClient
 
 load_dotenv()
@@ -153,3 +154,29 @@ def list_feedbacks(classId: Optional[str] = None):
             cur.execute("SELECT * FROM Daniil_Tsitavets_feedback.feedbacks ORDER BY created_at DESC")
         rows = cur.fetchall()
         return [row_to_dict(cur, r) for r in rows]
+
+
+class FeedbackIn(BaseModel):
+    registration_id: str
+    user_id: str
+    class_id: str
+    rating: int
+    comment: Optional[str] = None
+
+
+@app.post("/feedbacks", status_code=201)
+def create_feedback(body: FeedbackIn):
+    if not 1 <= body.rating <= 5:
+        raise HTTPException(status_code=422, detail="Rating must be between 1 and 5")
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO Daniil_Tsitavets_feedback.feedbacks
+                (registration_id, user_id, class_id, rating, comment)
+            OUTPUT INSERTED.feedback_id
+            VALUES (?, ?, ?, ?, ?)
+        """, body.registration_id, body.user_id, body.class_id, body.rating, body.comment)
+        new_id = cur.fetchone()[0]
+        conn.commit()
+    logger.info("Feedback created: feedback_id=%s", new_id)
+    return {"feedback_id": str(new_id)}

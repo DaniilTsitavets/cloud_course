@@ -48,22 +48,40 @@ def test_list_chefs(client):
     assert data[0]["name"] == "Gordon Ramsay"
 
 
+def test_list_chefs_sorted_by_rating(client):
+    rows = [
+        ("id-1", "Gordon", None, "British", 4.95),
+        ("id-2", "Julia", None, "French", 4.87),
+    ]
+    columns = ["chef_id", "name", "bio", "specialization", "rating"]
+    mock_conn, mock_cursor = make_mock_conn(rows, columns)
+
+    with patch("main.get_conn", return_value=mock_conn):
+        response = client.get("/chefs")
+
+    assert response.status_code == 200
+    sql = mock_cursor.execute.call_args[0][0]
+    assert "ORDER BY rating DESC" in sql
+
+
 def test_list_classes(client):
     rows = [("cls-1", "chef-1", "Mastering French", "2026-06-01", 20, 15, 99.0, None, "Julia Child")]
-    columns = ["class_id", "chef_id", "title", "schedule", "max_capacity", "seats_available", "price", "description", "chef_name"]
+    columns = ["class_id", "chef_id", "title", "schedule", "max_capacity",
+               "seats_available", "price", "description", "chef_name"]
     mock_conn, _ = make_mock_conn(rows, columns)
 
     with patch("main.get_conn", return_value=mock_conn):
         response = client.get("/classes")
 
     assert response.status_code == 200
-    data = response.json()
-    assert data[0]["title"] == "Mastering French"
+    assert response.json()[0]["title"] == "Mastering French"
+    assert response.json()[0]["chef_name"] == "Julia Child"
 
 
 def test_get_class_found(client):
     rows = [("cls-1", "chef-1", "Mastering French", "2026-06-01", 20, 15, 99.0, None, "Julia Child", "Bio", 4.87)]
-    columns = ["class_id", "chef_id", "title", "schedule", "max_capacity", "seats_available", "price", "description", "chef_name", "chef_bio", "chef_rating"]
+    columns = ["class_id", "chef_id", "title", "schedule", "max_capacity",
+               "seats_available", "price", "description", "chef_name", "chef_bio", "chef_rating"]
     mock_conn, _ = make_mock_conn(rows, columns)
 
     with patch("main.get_conn", return_value=mock_conn):
@@ -71,6 +89,7 @@ def test_get_class_found(client):
 
     assert response.status_code == 200
     assert response.json()["title"] == "Mastering French"
+    assert response.json()["chef_rating"] == 4.87
 
 
 def test_get_class_not_found(client):
@@ -81,3 +100,19 @@ def test_get_class_not_found(client):
         response = client.get("/classes/nonexistent")
 
     assert response.status_code == 404
+
+
+def test_create_chef_success(client):
+    new_id = "chef-new-1"
+    mock_conn, mock_cursor = make_mock_conn([(new_id,)], ["chef_id"])
+
+    with patch("main.get_conn", return_value=mock_conn):
+        response = client.post("/chefs", json={"name": "New Chef", "specialization": "Italian", "rating": 4.5})
+
+    assert response.status_code == 201
+    assert response.json()["chef_id"] == new_id
+
+
+def test_create_chef_invalid_rating(client):
+    response = client.post("/chefs", json={"name": "Bad Chef", "rating": 6.0})
+    assert response.status_code == 422

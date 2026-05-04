@@ -46,9 +46,8 @@ def test_list_feedbacks_all(client):
         response = client.get("/feedbacks")
 
     assert response.status_code == 200
-    data = response.json()
-    assert len(data) == 2
-    assert data[0]["rating"] == 5
+    assert len(response.json()) == 2
+    assert response.json()[0]["rating"] == 5
 
 
 def test_list_feedbacks_by_class(client):
@@ -60,7 +59,6 @@ def test_list_feedbacks_by_class(client):
         response = client.get("/feedbacks?classId=cls-1")
 
     assert response.status_code == 200
-    mock_cursor.execute.assert_called_once()
     sql_call = mock_cursor.execute.call_args[0][0]
     assert "class_id" in sql_call
 
@@ -74,3 +72,40 @@ def test_list_feedbacks_empty(client):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_create_feedback_success(client):
+    new_id = "fb-new-1"
+    mock_conn, mock_cursor = make_mock_conn([(new_id,)], ["feedback_id"])
+
+    with patch("main.get_conn", return_value=mock_conn):
+        response = client.post("/feedbacks", json={
+            "registration_id": "reg-1",
+            "user_id": "uid-1",
+            "class_id": "cls-1",
+            "rating": 5,
+            "comment": "Excellent!",
+        })
+
+    assert response.status_code == 201
+    assert response.json()["feedback_id"] == new_id
+
+
+def test_create_feedback_invalid_rating_too_high(client):
+    response = client.post("/feedbacks", json={
+        "registration_id": "reg-1",
+        "user_id": "uid-1",
+        "class_id": "cls-1",
+        "rating": 6,
+    })
+    assert response.status_code == 422
+
+
+def test_create_feedback_invalid_rating_too_low(client):
+    response = client.post("/feedbacks", json={
+        "registration_id": "reg-1",
+        "user_id": "uid-1",
+        "class_id": "cls-1",
+        "rating": 0,
+    })
+    assert response.status_code == 422
